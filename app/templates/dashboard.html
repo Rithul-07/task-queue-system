@@ -1,0 +1,337 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Task Queue System - Live Dashboard</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&family=JetBrains+Mono:wght@400;500&family=Space+Grotesk:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <script src="https://unpkg.com/lucide@latest"></script>
+    <script>
+        tailwind.config = {
+            theme: {
+                extend: {
+                    colors: {
+                        void: '#030304',
+                        'dark-matter': '#0F1115',
+                        stardust: '#94A3B8',
+                        boundary: '#1E293B',
+                        bitcoin: '#F7931A',
+                        burnt: '#EA580C',
+                        gold: '#FFD600'
+                    },
+                    fontFamily: {
+                        heading: ['Space Grotesk', 'sans-serif'],
+                        body: ['Inter', 'sans-serif'],
+                        mono: ['JetBrains Mono', 'monospace'],
+                    },
+                    animation: {
+                        'float': 'float 8s ease-in-out infinite',
+                        'orbit': 'spin 10s linear infinite',
+                        'orbit-reverse': 'spin 15s linear infinite reverse',
+                    },
+                    keyframes: {
+                        float: {
+                            '0%, 100%': { transform: 'translateY(0)' },
+                            '50%': { transform: 'translateY(-20px)' },
+                        }
+                    }
+                }
+            }
+        }
+    </script>
+    <style type="text/tailwindcss">
+        @layer utilities {
+            .bg-grid-pattern {
+                background-size: 50px 50px;
+                background-image:
+                    linear-gradient(to right, rgba(30, 41, 59, 0.5) 1px, transparent 1px),
+                    linear-gradient(to bottom, rgba(30, 41, 59, 0.5) 1px, transparent 1px);
+                mask-image: radial-gradient(circle at center, black 40%, transparent 100%);
+            }
+        }
+        body { background-color: #030304; color: #FFFFFF; }
+        
+        .card-block {
+            @apply bg-dark-matter border border-white/10 rounded-2xl p-8 transition-all duration-300;
+        }
+        .card-block:hover {
+            @apply -translate-y-1 border-bitcoin/50 shadow-[0_0_30px_-10px_rgba(247,147,26,0.2)];
+        }
+        
+        .btn-primary {
+            @apply bg-gradient-to-r from-burnt to-bitcoin text-white font-body font-bold text-sm uppercase tracking-wider rounded-md px-4 py-2 transition-all duration-300 shadow-[0_0_20px_-5px_rgba(234,88,12,0.5)] flex items-center justify-center gap-2;
+        }
+        .btn-primary:hover {
+            @apply scale-105 shadow-[0_0_30px_-5px_rgba(247,147,26,0.6)];
+        }
+        
+        .btn-outline {
+            @apply bg-transparent border-2 border-white/20 text-white font-body font-bold text-sm uppercase tracking-wider rounded-md px-4 py-2 transition-all duration-300 flex items-center justify-center gap-2;
+        }
+        .btn-outline:hover {
+            @apply border-white bg-white/10 text-bitcoin;
+        }
+
+        .job-card {
+            @apply bg-void border-l-2 border-white/10 p-4 rounded-xl flex justify-between items-center transition-all duration-300;
+        }
+
+        .custom-input {
+            @apply bg-black/50 border-b-2 border-white/20 h-12 px-4 py-2 text-white text-sm placeholder:text-white/30 transition-all duration-200 focus-visible:border-bitcoin focus-visible:shadow-[0_10px_20px_-10px_rgba(247,147,26,0.3)] focus-visible:outline-none w-full sm:w-auto;
+        }
+        
+        /* Ambient Backgrounds */
+        .ambient-glow-1 {
+            @apply absolute top-0 left-0 w-full h-full bg-bitcoin opacity-5 blur-[120px] pointer-events-none z-[-1];
+        }
+        .ambient-glow-2 {
+            @apply absolute bottom-0 right-0 w-3/4 h-3/4 bg-burnt opacity-5 blur-[150px] pointer-events-none z-[-1];
+        }
+    </style>
+</head>
+<body class="min-h-screen relative overflow-x-hidden font-body">
+    <!-- Background Layers -->
+    <div class="fixed inset-0 bg-grid-pattern z-[-2]"></div>
+    <div class="fixed inset-0 ambient-glow-1"></div>
+    <div class="fixed inset-0 ambient-glow-2"></div>
+
+    <div class="max-w-7xl mx-auto px-6 py-12 space-y-12">
+        <!-- Header -->
+        <header class="flex flex-col md:flex-row justify-between items-start md:items-center gap-6">
+            <div>
+                <h1 class="font-heading text-4xl md:text-5xl font-bold leading-tight">
+                    Task Queue <span class="bg-gradient-to-r from-bitcoin to-gold bg-clip-text text-transparent">System</span>
+                </h1>
+                <p class="text-stardust mt-2 font-mono text-sm tracking-wider uppercase flex items-center gap-2">
+                    <i data-lucide="layers" class="w-4 h-4 text-bitcoin"></i>
+                    O(log n) Priority Engine
+                </p>
+            </div>
+            
+            <div class="flex flex-col sm:flex-row items-center gap-4 w-full md:w-auto p-4 card-block !p-4 !rounded-xl !bg-black/20">
+                <input type="text" id="task-name" placeholder="Task Name" class="custom-input w-full sm:w-32" />
+                <input type="number" id="task-priority" placeholder="Pri (0-100)" class="custom-input w-full sm:w-24" min="0" max="100" />
+                <input type="number" id="task-delay" placeholder="Delay(s)" class="custom-input w-full sm:w-24" min="0" />
+                
+                <button onclick="addCustomJob()" class="btn-outline w-full sm:w-auto !py-2">
+                    <i data-lucide="zap" class="w-4 h-4"></i>
+                    Inject
+                </button>
+            </div>
+
+            <div class="flex flex-col sm:flex-row gap-4">
+                <button onclick="agePriorities()" class="btn-outline border-burnt text-burnt hover:bg-burnt/10 hover:border-burnt w-full sm:w-auto">
+                    <i data-lucide="refresh-cw" class="w-5 h-5"></i>
+                    Age Priorities O(n)
+                </button>
+                <button onclick="processNextJob()" class="btn-primary w-full md:w-auto">
+                    <i data-lucide="cpu" class="w-5 h-5"></i>
+                    Execute Next
+                </button>
+            </div>
+        </header>
+
+        <!-- Main Content -->
+        <div class="grid grid-cols-1 lg:grid-cols-3 gap-6 lg:gap-8 relative">
+            
+            <!-- Time Heap (Delayed) -->
+            <section class="card-block flex flex-col h-[70vh] relative group overflow-hidden">
+                <i data-lucide="clock" class="absolute -bottom-10 -right-10 w-64 h-64 text-stardust opacity-5 group-hover:opacity-10 transition-opacity duration-500 transform -rotate-12"></i>
+                
+                <div class="flex justify-between items-center mb-8 relative z-10 border-b border-white/10 pb-4">
+                    <h2 class="font-heading text-xl font-semibold flex items-center gap-3">
+                        <span class="bg-stardust/20 border border-stardust/50 rounded-lg p-2 flex items-center justify-center">
+                            <i data-lucide="clock" class="w-4 h-4 text-stardust"></i>
+                        </span>
+                        Time Heap
+                    </h2>
+                    <span id="delayed-count" class="font-mono bg-boundary px-4 py-1 rounded-full text-sm font-semibold border border-white/10 text-stardust">0</span>
+                </div>
+                
+                <div id="delayed-list" class="space-y-4 overflow-y-auto pr-2 flex-1 relative z-10 custom-scrollbar">
+                    <!-- Delayed jobs will be injected here -->
+                </div>
+            </section>
+            
+            <!-- Floating Decorative Element (Background) -->
+            <div class="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 opacity-20 group-hover:opacity-100 transition-opacity duration-700 pointer-events-none hidden lg:block z-[-1]">
+                <div class="w-64 h-64 border border-bitcoin/30 rounded-full animate-orbit flex items-center justify-center">
+                    <div class="w-48 h-48 border border-gold/30 rounded-full animate-orbit-reverse"></div>
+                </div>
+            </div>
+
+            <!-- Pending Queue -->
+            <section class="card-block flex flex-col h-[70vh] relative group overflow-hidden">
+                <i data-lucide="database" class="absolute -bottom-10 -right-10 w-64 h-64 text-bitcoin opacity-5 group-hover:opacity-10 transition-opacity duration-500 transform -rotate-12"></i>
+                
+                <div class="flex justify-between items-center mb-8 relative z-10 border-b border-white/10 pb-4">
+                    <h2 class="font-heading text-2xl font-semibold flex items-center gap-3">
+                        <span class="bg-bitcoin/20 border border-bitcoin/50 rounded-lg p-2 shadow-[0_0_15px_rgba(247,147,26,0.3)] flex items-center justify-center">
+                            <span class="w-2 h-2 rounded-full bg-bitcoin animate-ping"></span>
+                        </span>
+                        Mempool
+                    </h2>
+                    <span id="pending-count" class="font-mono bg-boundary px-4 py-1 rounded-full text-sm font-semibold border border-white/10 text-gold">0</span>
+                </div>
+                
+                <div id="pending-list" class="space-y-4 overflow-y-auto pr-2 flex-1 relative z-10 custom-scrollbar">
+                    <!-- Pending jobs will be injected here -->
+                </div>
+            </section>
+
+            <!-- Processed History -->
+            <section class="card-block flex flex-col h-[70vh] relative group overflow-hidden">
+                <i data-lucide="check-circle" class="absolute -bottom-10 -right-10 w-64 h-64 text-gold opacity-5 group-hover:opacity-10 transition-opacity duration-500 transform rotate-12"></i>
+                
+                <div class="flex justify-between items-center mb-8 relative z-10 border-b border-white/10 pb-4">
+                    <h2 class="font-heading text-2xl font-semibold flex items-center gap-3">
+                        <span class="bg-gold/20 border border-gold/50 rounded-lg p-2 shadow-[0_0_15px_rgba(255,214,0,0.2)] flex items-center justify-center">
+                            <i data-lucide="activity" class="w-4 h-4 text-gold"></i>
+                        </span>
+                        Ledger History
+                    </h2>
+                </div>
+                
+                <div id="history-list" class="space-y-4 overflow-y-auto pr-2 flex-1 relative z-10 custom-scrollbar">
+                    <!-- Processed jobs will be injected here -->
+                </div>
+            </section>
+        </div>
+    </div>
+
+    <script>
+        // Initialize Lucide icons
+        lucide.createIcons();
+
+        async function fetchJobs() {
+            try {
+                const res = await fetch('/api/jobs');
+                const data = await res.json();
+                renderJobs(data.delayed, 'delayed-list', 'delayed-count', false, true);
+                renderJobs(data.pending, 'pending-list', 'pending-count', true, false);
+                renderJobs(data.history.reverse(), 'history-list', null, false, false);
+            } catch (err) {
+                console.error("Error fetching jobs:", err);
+            }
+        }
+
+        function renderJobs(jobs, containerId, countId, isPending, isDelayed) {
+            const container = document.getElementById(containerId);
+            if (countId) document.getElementById(countId).innerText = jobs.length;
+            
+            if (jobs.length === 0) {
+                container.innerHTML = `
+                    <div class="h-full flex flex-col items-center justify-center text-stardust opacity-50">
+                        <i data-lucide="inbox" class="w-12 h-12 mb-4"></i>
+                        <p class="font-mono text-sm uppercase tracking-wider">No blocks found</p>
+                    </div>`;
+                lucide.createIcons();
+                return;
+            }
+
+            container.innerHTML = jobs.map(job => {
+                const isHighPriority = job.priority < 20;
+                let statusColor = 'text-stardust';
+                let borderColor = 'border-white/10';
+                
+                if (isDelayed) {
+                    statusColor = 'text-stardust';
+                    borderColor = 'border-stardust/30 border-dashed';
+                } else if (!isPending) {
+                    if (job.status === 'succeeded') {
+                        statusColor = 'text-gold';
+                        borderColor = 'border-gold/30';
+                    } else if (job.status === 'failed') {
+                        statusColor = 'text-red-500';
+                        borderColor = 'border-red-500/30';
+                    }
+                } else if (isHighPriority) {
+                    statusColor = 'text-bitcoin';
+                    borderColor = 'border-bitcoin/50';
+                }
+
+                return `
+                <div class="job-card hover:bg-white/5 border-l-2 ${borderColor}">
+                    <div>
+                        <div class="text-[10px] text-stardust mb-2 font-mono uppercase tracking-widest opacity-70">
+                            ID: ${job.id.split('-')[0]}
+                        </div>
+                        <div class="font-body font-medium text-white tracking-wide">
+                            ${job.payload.task_name || 'Generic Transaction'}
+                        </div>
+                    </div>
+                    <div class="text-right">
+                        <div class="font-mono text-2xl font-bold ${statusColor}">
+                            P${job.priority}
+                        </div>
+                        <div class="text-[10px] font-mono uppercase tracking-widest mt-1 ${statusColor} flex items-center justify-end gap-1">
+                            ${!isPending && !isDelayed && job.status === 'succeeded' ? '<i data-lucide="check" class="w-3 h-3"></i>' : ''}
+                            ${isDelayed ? 'WAITING' : job.status}
+                        </div>
+                    </div>
+                </div>
+            `}).join('');
+            
+            lucide.createIcons();
+        }
+
+        async function addCustomJob() {
+            const nameInput = document.getElementById('task-name');
+            const priorityInput = document.getElementById('task-priority');
+            const delayInput = document.getElementById('task-delay');
+            
+            let taskName = nameInput.value.trim();
+            if (!taskName) {
+                const randomNames = ["Verify Signature", "Compute Hash", "Sync Node Data", "Execute Smart Contract", "Process Transaction", "Rebalance Liquidity"];
+                taskName = randomNames[Math.floor(Math.random() * randomNames.length)];
+            }
+            
+            let priority = parseInt(priorityInput.value);
+            if (isNaN(priority)) {
+                priority = Math.floor(Math.random() * 100);
+            }
+            
+            let delay = parseInt(delayInput.value);
+            if (isNaN(delay)) {
+                delay = 0;
+            }
+            
+            await fetch('/api/jobs', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ priority: priority, delay_seconds: delay, payload: { task_name: taskName } })
+            });
+            
+            nameInput.value = '';
+            priorityInput.value = '';
+            delayInput.value = '';
+            
+            fetchJobs();
+        }
+
+        async function agePriorities() {
+            try {
+                const res = await fetch('/api/jobs/age', { method: 'POST' });
+                const data = await res.json();
+                console.log(data.message);
+                fetchJobs();
+            } catch (err) {
+                console.error("Error aging priorities:", err);
+            }
+        }
+
+        async function processNextJob() {
+            try {
+                await fetch('/api/jobs/process', { method: 'POST' });
+                fetchJobs();
+            } catch (err) {
+                console.error("Queue empty or error");
+            }
+        }
+
+        setInterval(fetchJobs, 1000);
+        fetchJobs();
+    </script>
+</body>
+</html>

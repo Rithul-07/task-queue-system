@@ -69,3 +69,30 @@ class PriorityQueue(Generic[ItemT]):
         version = next(self._version)
         self._entries[value] = (priority, version)
         heapq.heappush(self._heap, (priority, next(self._sequence), version, value))
+
+    def age_priorities(self, decrement: int = 1) -> int:
+        """
+        O(n) Starvation Prevention algorithm.
+        Decreases the priority number (increases actual priority) of all waiting items,
+        and restructures the binary heap in O(n) time using heapify.
+        Returns the number of items aged.
+        """
+        if not self._entries:
+            return 0
+            
+        new_heap = []
+        aged_count = 0
+        
+        # We only keep valid items (lazy deletion cleanup happens here too!)
+        for priority, seq, version, value in self._heap:
+            if self._entries.get(value) == (priority, version):
+                # Age the priority (floor at 0)
+                new_priority = max(0, priority - decrement)
+                # Update the entries dictionary
+                self._entries[value] = (new_priority, version)
+                new_heap.append((new_priority, seq, version, value))
+                aged_count += 1
+                
+        self._heap = new_heap
+        heapq.heapify(self._heap)
+        return aged_count

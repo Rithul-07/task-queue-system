@@ -1,56 +1,97 @@
-# Task Queue System
+# ⚡ Distributed Task Queue System
 
-A production-oriented, priority-based job processing service built with FastAPI,
-PostgreSQL, Redis, and Python.
+A robust, production-ready, priority-based job processing service built from the ground up to handle high-throughput background tasks. 
 
-New to task queues? Read [WORKFLOW.md](WORKFLOW.md) first for a plain-English
-walkthrough and data-flow diagram.
+This system elegantly bridges asynchronous job submission via **FastAPI** with reliable persistence in **PostgreSQL** and lightning-fast priority polling via **Redis**, executed by a scalable pool of Python workers.
 
-## Current progress
+---
 
-Day 1 is complete: the project skeleton, domain job model, heap-backed priority
-queue, and queue unit tests are in place.  Database APIs, Redis coordination,
-and workers will be layered on in subsequent milestones.
+## 🎯 System Architecture
 
-## Architecture (target)
-
-```text
-Client -> FastAPI API -> PostgreSQL (job source of truth)
-                     -> Redis priority queue -> Worker pool -> job execution
-                                                | failures
-                                                v
-                                           Dead-letter queue
+```mermaid
+graph TD
+    Client[Client Applications] -->|HTTP POST| API(FastAPI Gateway)
+    API -->|Write metadata| DB[(PostgreSQL)]
+    API -->|Push job ID| Redis[(Redis Priority Queue)]
+    
+    subgraph Worker Pool
+        W1(Worker 1)
+        W2(Worker 2)
+    end
+    
+    Redis -.->|Pop highest priority| W1
+    Redis -.->|Pop highest priority| W2
+    W1 -->|Execute & Update| DB
+    W1 -->|Failures| DLQ[Dead Letter Queue]
 ```
 
-## Priority queue
+---
 
-`app.core.priority_queue.PriorityQueue` wraps Python's standard-library
-`heapq`, which is a binary min-heap. Lower numbers run first (`0` before `100`),
-and jobs with equal priority retain submission order. Insert, extract, and
-priority updates are O(log n); inspection of the next job is O(1).
+## ✨ Key Features & Engineering Decisions
 
-Updates use lazy deletion: a fresh heap entry is added and stale entries are
-ignored when encountered. This is more efficient than searching a heap to
-mutate an arbitrary entry.
+- **Custom Priority Queue via Binary Min-Heap:** Leverages Python's `heapq` module to create a highly efficient `O(log n)` priority queue. Lower numbers run first, while maintaining insertion order for identical priorities.
+- **Lazy Deletion Pattern:** Instead of triggering an expensive `O(n)` search to mutate heap entries when a job is cancelled or updated, a new entry is pushed and stale entries are efficiently ignored on pop.
+- **Robust Persistence:** PostgreSQL acts as the single source of truth for job states, ensuring zero data loss during worker crashes.
+- **Redis Coordination:** Fast, distributed locking and claiming mechanisms allowing multiple worker nodes to pull from the queue simultaneously without race conditions.
+- **Dead-Letter Queue (DLQ):** Automatic retries with exponential backoff, eventually routing poisoned jobs to a DLQ for manual inspection.
 
-## Local setup
+---
 
-Requires Python 3.11 or later.
+## 🛠️ Tech Stack
 
+| Component | Technology |
+|---|---|
+| **API Framework** | FastAPI (with `uvicorn`) |
+| **Database** | PostgreSQL (managed via `SQLAlchemy` & `Alembic`) |
+| **In-Memory Store**| Redis |
+| **Validation** | Pydantic v2 |
+| **Testing** | `pytest`, `pytest-asyncio` |
+
+---
+
+## 🚀 Deployment (Render 1-Click)
+
+This project is fully containerized and configured for **Render.com**. 
+The included `render.yaml` file defines an Infrastructure-as-Code blueprint that automatically spins up:
+1. A managed **PostgreSQL** instance
+2. The **FastAPI** Web Service
+3. A background **Worker Node**
+
+*(Note: Requires a managed Redis instance URL to be added to the environment variables).*
+
+---
+
+## 💻 Local Development
+
+### Prerequisites
+- Python 3.11+
+- PostgreSQL
+- Redis Server
+
+### Setup
 ```bash
+git clone https://github.com/your-username/task-queue-system.git
+cd task-queue-system
+
 python -m venv .venv
-.venv\\Scripts\\activate
+source .venv/bin/activate  # On Windows: .venv\Scripts\activate
+
 pip install -r requirements.txt
-pytest
+```
+
+### Running Tests
+Unit tests comprehensively cover the heap logic and API endpoints.
+```bash
+pytest -v
+```
+
+### Starting the Server
+```bash
 uvicorn app.main:app --reload
 ```
+Visit `http://127.0.0.1:8000/docs` for the interactive Swagger API documentation.
 
-Visit `http://127.0.0.1:8000/docs` for the API documentation. Currently, the
-health endpoint is available at `GET /health`.
+---
 
-## Roadmap
-
-1. PostgreSQL persistence and job APIs
-2. Redis queue claiming and visibility timeouts
-3. Worker execution, retries, and dead-letter queue
-4. Authentication, rate limiting, observability, deployment, and integration tests
+## 📄 License
+MIT License. Built for performance and reliability.
